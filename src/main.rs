@@ -1,7 +1,7 @@
 /* Thanks to the serenity GitHub examples as well as
  * https://developers.facebook.com/blog/post/2020/09/30/build-discord-bot-with-rust-and-serenity/
  * for providing the initial structure of this bot. */
-use std::env; // Environment variables
+use std::env;
 use serenity::{
     async_trait,
     model::{channel::Message, gateway::Ready},
@@ -17,11 +17,8 @@ impl EventHandler for Handler {
         if msg.is_own(&ctx.cache).await {
             if msg.content == "!help" {
                 if let Err(why) = msg.channel_id.say(&ctx.http, "Hey look, I'm a ghost!").await {
-                    println!("Error sending help message: {:?}", why);
+                    println!("Error sending message: {:?}", why);
                 }
-            }
-            else {
-                println!("Incorrect, content = {}", msg.content);
             }
         }
         else {

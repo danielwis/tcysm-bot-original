@@ -15366,7 +15366,7 @@ local	target/debug/.fingerprint/webpki-10fe1ac6cfa1bd26/lib-webpki.json	/^{"rust
 local	target/debug/.fingerprint/webpki-14c790dfae8bb3a3/lib-webpki.json	/^{"rustc":14330414595928666026,"features":"[\\"default\\", \\"std\\", \\"trust_anchor_util\\"]","/;"	a	line:1	language:JSON
 local	target/debug/.fingerprint/webpki-roots-50f16eb1d618b63d/lib-webpki-roots.json	/^{"rustc":14330414595928666026,"features":"[]","target":13840334658356273625,"profile":1263731873/;"	a	line:1	language:JSON
 local	target/debug/.fingerprint/webpki-roots-ae75679f1e84e06f/lib-webpki-roots.json	/^{"rustc":14330414595928666026,"features":"[]","target":13840334658356273625,"profile":3735503092/;"	a	line:1	language:JSON
-main	src/main.rs	/^async fn main() {$/;"	f	line:38	language:Rust	signature:()
+main	src/main.rs	/^async fn main() {$/;"	f	line:35	language:Rust	signature:()
 message	src/main.rs	/^    async fn message(&self, ctx: Context, msg: Message){$/;"	P	line:15	language:Rust	implementation:Handler	signature:(&self, ctx: Context, msg: Message)
 metadata	target/debug/.fingerprint/adler-15db843e4b39fe4c/lib-adler.json	/^{"rustc":14330414595928666026,"features":"[]","target":17946092562950227216,"profile":1263731873/;"	n	line:1	language:JSON
 metadata	target/debug/.fingerprint/adler-191dc6768745086b/lib-adler.json	/^{"rustc":14330414595928666026,"features":"[]","target":17946092562950227216,"profile":3735503092/;"	n	line:1	language:JSON
@@ -15960,6 +15960,7 @@ paths	target/debug/.fingerprint/num-integer-ef188a28ad038600/run-build-script-bu
 paths	target/debug/.fingerprint/num-traits-fd14b53677256112/run-build-script-build-script-build.json	/^{"rustc":14330414595928666026,"features":"","target":0,"profile":0,"path":0,"deps":[[81216356945/;"	a	line:1	language:JSON	object:local.0.RerunIfChanged
 paths	target/debug/.fingerprint/proc-macro2-9b223ecf11c82fa5/run-build-script-build-script-build.json	/^{"rustc":14330414595928666026,"features":"","target":0,"profile":0,"path":0,"deps":[[25181567215/;"	a	line:1	language:JSON	object:local.0.RerunIfChanged
 paths	target/debug/.fingerprint/quote-2b93164f0cf61ad7/run-build-script-build-script-build.json	/^{"rustc":14330414595928666026,"features":"","target":0,"profile":0,"path":0,"deps":[[46586679685/;"	a	line:1	language:JSON	object:local.0.RerunIfChanged
+ping	src/commands/mod.rs	/^async fn ping(ctx: &Context, msg: &Message) -> CommandResult {$/;"	f	line:10	language:Rust	signature:(ctx: &Context, msg: &Message) -> CommandResult
 profile	target/debug/.fingerprint/adler-15db843e4b39fe4c/lib-adler.json	/^{"rustc":14330414595928666026,"features":"[]","target":17946092562950227216,"profile":1263731873/;"	n	line:1	language:JSON
 profile	target/debug/.fingerprint/adler-191dc6768745086b/lib-adler.json	/^{"rustc":14330414595928666026,"features":"[]","target":17946092562950227216,"profile":3735503092/;"	n	line:1	language:JSON
 profile	target/debug/.fingerprint/async-trait-464d2fb737a612e5/lib-async-trait.json	/^{"rustc":14330414595928666026,"features":"[]","target":7898274425466113371,"profile":12637318739/;"	n	line:1	language:JSON
@@ -16243,7 +16244,7 @@ profile	target/debug/.fingerprint/webpki-10fe1ac6cfa1bd26/lib-webpki.json	/^{"ru
 profile	target/debug/.fingerprint/webpki-14c790dfae8bb3a3/lib-webpki.json	/^{"rustc":14330414595928666026,"features":"[\\"default\\", \\"std\\", \\"trust_anchor_util\\"]","/;"	n	line:1	language:JSON
 profile	target/debug/.fingerprint/webpki-roots-50f16eb1d618b63d/lib-webpki-roots.json	/^{"rustc":14330414595928666026,"features":"[]","target":13840334658356273625,"profile":1263731873/;"	n	line:1	language:JSON
 profile	target/debug/.fingerprint/webpki-roots-ae75679f1e84e06f/lib-webpki-roots.json	/^{"rustc":14330414595928666026,"features":"[]","target":13840334658356273625,"profile":3735503092/;"	n	line:1	language:JSON
-ready	src/main.rs	/^    async fn ready(&self, _: Context, ready: Ready){$/;"	P	line:32	language:Rust	implementation:Handler	signature:(&self, _: Context, ready: Ready)
+ready	src/main.rs	/^    async fn ready(&self, _: Context, ready: Ready){$/;"	P	line:29	language:Rust	implementation:Handler	signature:(&self, _: Context, ready: Ready)
 rustc	target/debug/.fingerprint/adler-15db843e4b39fe4c/lib-adler.json	/^{"rustc":14330414595928666026,"features":"[]","target":17946092562950227216,"profile":1263731873/;"	n	line:1	language:JSON
 rustc	target/debug/.fingerprint/adler-191dc6768745086b/lib-adler.json	/^{"rustc":14330414595928666026,"features":"[]","target":17946092562950227216,"profile":3735503092/;"	n	line:1	language:JSON
 rustc	target/debug/.fingerprint/async-trait-464d2fb737a612e5/lib-async-trait.json	/^{"rustc":14330414595928666026,"features":"[]","target":7898274425466113371,"profile":12637318739/;"	n	line:1	language:JSON
