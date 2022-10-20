@@ -15,6 +15,7 @@ use serenity::framework::standard::{
     CommandResult,
 };
 use serenity::framework::standard::macros::{group, command};
+use serenity::model::event::ResumedEvent;
 
 struct Handler;
 
@@ -36,39 +37,15 @@ struct Owner;
 
 #[async_trait]
 impl EventHandler for Handler {
-    async fn message(&self, ctx: Context, msg: Message){
-        // Don't respond to self
-        if msg.is_own(&ctx.cache) {
-            if msg.content == "!help" {
-                if let Err(why) = msg.channel_id.say(&ctx.http, "Hey look, I'm a ghost!").await {
-                    println!("Error sending message: {:?}", why);
-                }
-            }
-        }
-        else {
-            println!("Own message");
-        }
-    }
-
     async fn ready(&self, _: Context, ready: Ready){
         println!("{} is connected!", ready.user.name);
     }
-}
 
-#[command]
-async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
-    if let Err(why) = msg.channel_id.say(&ctx.http, "Pong!").await {
-        println!("Error: {:?}", why);
+    /*
+    async fn resume(&self, _: Context, _: ResumedEvent) {
+        println!("Resumed");
     }
-    Ok(())
-}
-
-#[command]
-async fn company(ctx: &Context, msg: &Message) -> CommandResult {
-    if let Err(why) = msg.channel_id.say(&ctx.http, "Hi company x").await {
-        println!("Error: {:?}", why);
-    }
-    Ok(())
+    */
 }
 
 #[tokio::main]
@@ -92,6 +69,7 @@ async fn main() {
             } else {
                 owners.insert(info.owner.id);
             }
+
             match http.get_current_user().await {
                 Ok(bot_id) => (owners, bot_id.id),
                 Err(why) => panic!("Could not access the bot ID: {:?}", why),
@@ -107,7 +85,8 @@ async fn main() {
                    .on_mention(Some(bot_id))
                    .prefix("!")
                    .delimiters(vec![", ", ","])
-                   .owners(owners));
+                   .owners(owners))
+        .group(&GENERAL_GROUP);
     /* TODO: Read up on the functionality below and configure it after proper understanding to
      * avoid copy pasting too much.
     // Set a function to be called prior to each command execution. This
@@ -159,8 +138,9 @@ async fn main() {
     */
 
     // Give bot access to all channels for reading etc
-    let mut client = Client::builder(token, GatewayIntents::all()).
-        event_handler(Handler)
+    let intents = GatewayIntents::all();
+    let mut client = Client::builder(token, intents)
+        .event_handler(Handler)
         .framework(framework)
         .await
         .expect("Error creating client");
