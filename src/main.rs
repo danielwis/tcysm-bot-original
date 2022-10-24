@@ -2,20 +2,32 @@
  * https://developers.facebook.com/blog/post/2020/09/30/build-discord-bot-with-rust-and-serenity/
  * for providing the initial structure of this bot.
  * Especially the serenity GitHub, your examples have been fantastic for learning. */
+
+mod commands;
+
 use std::env;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
+use std::sync::Arc;
+use serenity::model::prelude::{GuildId, Member};
 use serenity::{
     async_trait,
-    model::{channel::Message, gateway::Ready},
+    model::gateway::Ready,
     prelude::*,
 };
 use serenity::http::Http;
 use serenity::framework::StandardFramework;
-use serenity::framework::standard::{
-    CommandResult,
-};
-use serenity::framework::standard::macros::{group, command};
-use serenity::model::event::ResumedEvent;
+use serenity::framework::standard::macros::group;
+// use serenity::model::event::ResumedEvent;
+
+use crate::commands::*; // Update to crate::commands::filename::* when filename is no longer
+                        // "mod.rs"
+use crate::commands::invite::*;
+
+struct InviteTracker;
+impl TypeMapKey for InviteTracker {
+    // We want an `InviteTracker` object to look like: "<invite-id>: ([roles], uses)"
+    type Value = Arc<RwLock<HashMap<String, (Vec<String>, u64)>>>;
+}
 
 struct Handler;
 
@@ -25,6 +37,14 @@ struct Handler;
 #[commands(ping)]
 //#[commands(about, am_i_admin, say, commands, ping, latency, some_long_command, upper_command)]
 struct General; // The name of the command group
+
+#[group]
+#[description = "Create invites that assign its users/joiners to certain roles"]
+#[summary = "Invite users to specific roles"]
+#[prefixes("invite", "inv")]
+#[default_command("check")]
+#[commands("new", "check")]
+struct Invite;
 
 #[group]
 #[owners_only]
@@ -41,6 +61,26 @@ impl EventHandler for Handler {
         println!("{} is connected!", ready.user.name);
     }
 
+    async fn guild_member_addition(&self, ctx: Context, newmem: Member) {
+        if let Ok(active_invites) = newmem.guild_id.invites(ctx.http).await {
+            // We can assume that the same invite codes are present in both
+            // the cached invites and the ones we get here, as the (TODO)
+            // invite_add and invite_delete events will update the cached ones
+            let data = ctx.data.read().await;
+            let cached_invites = data.get::<InviteTracker>()
+                .expect("Could not find cached InviteTracker object");
+            
+            for inv in active_invites {
+                if let Some( (roles, cached_count) ) = cached_invites.read().await.get(&inv.code) {
+                    if inv.uses > *cached_count {
+                        println!("Invite changed: {}", inv.code);
+                        println!("{:?}", roles);
+                    }
+                }
+            }
+        }
+    }
+
     /*
     async fn resume(&self, _: Context, _: ResumedEvent) {
         println!("Resumed");
@@ -54,12 +94,13 @@ async fn main() {
     // the CWD. See `./.env.example` for an example on how to structure this.
     dotenv::dotenv().expect("Failed to load .env file");
 
-    let token = env::var("DISCORD_TOKEN").
-        expect("Failed to get Discord token from environment");
+    let token = env::var("DISCORD_TOKEN")
+        .expect("Failed to get Discord token from environment.");
     println!("Got token");
 
     let http = Http::new(&token);
 
+    // Get the bot's owners + the bot's id.
     let (owners, bot_id) = match http.get_current_application_info().await {
         Ok(info) => {
             println!("\nCurrent application info:\n{:?}\n", info);
@@ -86,7 +127,8 @@ async fn main() {
                    .prefix("!")
                    .delimiters(vec![", ", ","])
                    .owners(owners))
-        .group(&GENERAL_GROUP);
+        .group(&GENERAL_GROUP)
+        .group(&INVITE_GROUP);
     /* TODO: Read up on the functionality below and configure it after proper understanding to
      * avoid copy pasting too much.
     // Set a function to be called prior to each command execution. This
@@ -145,6 +187,29 @@ async fn main() {
         .await
         .expect("Error creating client");
     println!("Built client");
+
+    let guild_id = 1030837656294264904; // Bot Testing server
+    println!("{:?}", GuildId(guild_id).invites(&http).await);
+
+    // Construct a hash map to be contained in an InviteTracker object
+    // where it will be wrapped in Arc<RwLock> for thread safety.
+    // Used to track invites' associated roles and auto-assign them on join
+    let mut invite_map = HashMap::<String, (Vec<String>, u64)>::default();
+    if let Ok(active_invites) = GuildId(guild_id).invites(http).await {
+        for inv in active_invites {
+            invite_map.insert(inv.code, (Vec::<String>::new(), inv.uses));
+        }
+    }
+
+    // Explicitly scope this to release the lock after write
+    {
+        let mut data = client.data.write().await;
+
+        // Insert an InviteTracker object into the client data.
+        // This is done so that we can access it within events and other
+        // methods, as `data` is available through `ctx.data`.
+        data.insert::<InviteTracker>(Arc::new(RwLock::new(invite_map)));
+    }
 
     if let Err(why) = client.start().await {
         println!("Error starting client: {:?}", why);

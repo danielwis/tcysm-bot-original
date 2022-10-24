@@ -9,3 +9,7 @@ edition = "2021"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 serenity = { git = "https://github.com/serenity-rs/serenity.git", features = ["framework", "standard_framework"] }
 dotenv = "0.15"
+
+# Serde for the "database". This should be migrated to either pSQL or SQLite in the future
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
