@@ -8,7 +8,7 @@ mod commands;
 use std::env;
 use std::collections::{HashSet, HashMap};
 use std::sync::Arc;
-use serenity::model::prelude::{GuildId, Member};
+use serenity::model::prelude::{GuildId, Member, RoleId};
 use serenity::{
     async_trait,
     model::gateway::Ready,
@@ -26,7 +26,7 @@ use crate::commands::invite::*;
 struct InviteTracker;
 impl TypeMapKey for InviteTracker {
     // We want an `InviteTracker` object to look like: "<invite-id>: ([roles], uses)"
-    type Value = Arc<RwLock<HashMap<String, (Vec<String>, u64)>>>;
+    type Value = Arc<RwLock<HashMap<String, (Vec<RoleId>, u64)>>>;
 }
 
 struct Handler;
@@ -44,6 +44,7 @@ struct General; // The name of the command group
 #[prefixes("invite", "inv")]
 #[default_command("check")]
 #[commands("new", "check")]
+#[allowed_roles("Mod")]
 struct Invite;
 
 #[group]
@@ -61,23 +62,35 @@ impl EventHandler for Handler {
         println!("{} is connected!", ready.user.name);
     }
 
-    async fn guild_member_addition(&self, ctx: Context, newmem: Member) {
-        if let Ok(active_invites) = newmem.guild_id.invites(ctx.http).await {
+    /// On guild member addition, we want to:
+    /// 1. Check which invite they have used by comparing our cached invite count
+    ///    to our server's invite count.
+    /// 2. Assign the new member all roles associated with the invite. Associations
+    ///    are based on the InviteTracker struct loaded at start and updated by the
+    ///    role association commands.
+    async fn guild_member_addition(&self, ctx: Context, mut newmem: Member) {
+        if let Ok(active_invites) = newmem.guild_id.invites(&ctx.http).await {
             // We can assume that the same invite codes are present in both
             // the cached invites and the ones we get here, as the (TODO)
             // invite_add and invite_delete events will update the cached ones
             let data = ctx.data.read().await;
             let cached_invites = data.get::<InviteTracker>()
                 .expect("Could not find cached InviteTracker object");
-            
+
             for inv in active_invites {
-                if let Some( (roles, cached_count) ) = cached_invites.read().await.get(&inv.code) {
+                if let Some( (rls, cached_count) ) = cached_invites.read().await.get(&inv.code) {
                     if inv.uses > *cached_count {
                         println!("Invite changed: {}", inv.code);
-                        println!("{:?}", roles);
+                        println!("Roles: {:?}", rls);
+                        if let Err(why) = newmem.add_roles(&ctx.http, rls).await {
+                            println!("Error adding roles: {:?}", why);
+                        }
+                        break;
                     }
                 }
             }
+        } else {
+            panic!("Error getting invites");
         }
     }
 
@@ -194,10 +207,10 @@ async fn main() {
     // Construct a hash map to be contained in an InviteTracker object
     // where it will be wrapped in Arc<RwLock> for thread safety.
     // Used to track invites' associated roles and auto-assign them on join
-    let mut invite_map = HashMap::<String, (Vec<String>, u64)>::default();
+    let mut invite_map = HashMap::<String, (Vec<RoleId>, u64)>::default();
     if let Ok(active_invites) = GuildId(guild_id).invites(http).await {
         for inv in active_invites {
-            invite_map.insert(inv.code, (Vec::<String>::new(), inv.uses));
+            invite_map.insert(inv.code, (Vec::<RoleId>::new(), inv.uses));
         }
     }
 
