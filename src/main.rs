@@ -9,7 +9,7 @@ use std::io::Write;
 use std::{env, fs};
 use std::collections::{HashSet, HashMap};
 use std::sync::Arc;
-use serenity::model::prelude::{GuildId, Member, RoleId};
+use serenity::model::prelude::{GuildId, Member, Role, RoleId};
 use serenity::{
     async_trait,
     model::gateway::Ready,
@@ -28,14 +28,14 @@ use crate::commands::invite::*;
 #[derive(Serialize, Deserialize, Debug)]
 struct InviteRoles {
     code: String,
-    roles: Vec<RoleId>,
+    roles: Vec<Role>,
 }
 
 
 // We want an `InviteTracker` object to look like: "<invite-id>: ([roles], uses)"
 struct InviteTracker;
 impl TypeMapKey for InviteTracker {
-    type Value = Arc<RwLock<HashMap<String, (Vec<RoleId>, u64)>>>;
+    type Value = Arc<RwLock<HashMap<String, (Vec<Role>, u64)>>>;
 }
 
 struct Handler;
@@ -48,11 +48,11 @@ struct Handler;
 struct General; // The name of the command group
 
 #[group]
-#[description = "Create invites that assign its users/joiners to certain roles"]
-#[summary = "Invite users to specific roles"]
+#[description = "Link invites to specific roles"]
+#[summary = "Change link-roles associations"]
 #[prefixes("invite", "inv")]
-#[default_command("check")]
-#[commands("new", "check")]
+#[default_command("list")]
+#[commands("link", "unlink", "list")]
 #[allowed_roles("Mod")]
 struct Invite;
 
@@ -91,7 +91,9 @@ impl EventHandler for Handler {
                     if inv.uses > *cached_count {
                         println!("Invite changed: {}", inv.code);
                         println!("Roles: {:?}", rls);
-                        if let Err(why) = newmem.add_roles(&ctx.http, rls).await {
+                        // For some reason, we need to specify the type to collect into...
+                        let roleids = rls.iter().map(|r| r.id).collect::<Vec<RoleId>>();
+                        if let Err(why) = newmem.add_roles(&ctx.http, &roleids).await {
                             println!("Error adding roles: {:?}", why);
                         }
                         break;
@@ -257,7 +259,7 @@ async fn main() {
     // for each of the local invites:
     // check if the code (key) exists in active_invites
     // if it doesn't, remove it from the json file
-    let mut cached_invite_map = HashMap::<String, (Vec<RoleId>, u64)>::default();
+    let mut cached_invite_map = HashMap::<String, (Vec<Role>, u64)>::default();
     if let Ok(active_invites) = GuildId(guild_id).invites(http).await {
         for inv in local_invite_mappings {
             for ac_inv in &active_invites {
@@ -266,7 +268,7 @@ async fn main() {
                     cached_invite_map
                         .entry(inv.code.to_string())
                         .and_modify(|e| e.0 = inv.roles)
-                        .or_insert((Vec::<RoleId>::new(), ac_inv.uses));
+                        .or_insert((Vec::<Role>::new(), ac_inv.uses));
                     break; // Break to avoid further borrows of moved variable `inv.code` that
                            // would happen if we moved the value in `entry()` and then kept on
                            // looping (since `inv` doesn't change until the outer loop runs again).
@@ -279,7 +281,7 @@ async fn main() {
         for ac_inv in active_invites {
             cached_invite_map
                 .entry(ac_inv.code)
-                .or_insert((Vec::<RoleId>::new(), ac_inv.uses));
+                .or_insert((Vec::<Role>::new(), ac_inv.uses));
         }
 
         // Serialise the new vector and write it back to file?
