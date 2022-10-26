@@ -5,6 +5,7 @@
 
 mod commands;
 
+use std::io::Write;
 use std::{env, fs};
 use std::collections::{HashSet, HashMap};
 use std::sync::Arc;
@@ -24,7 +25,7 @@ use crate::commands::*; // Update to crate::commands::filename::* when filename 
                         // "mod.rs"
 use crate::commands::invite::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct InviteRoles {
     code: String,
     roles: Vec<RoleId>,
@@ -218,7 +219,7 @@ async fn main() {
     let db_path = env::var("JSON_PATH")
         .expect("Could not find the JSON_PATH variable in environment");
     let db_string = {
-        match fs::read_to_string(db_path) {
+        match fs::read_to_string(&db_path) {
             Ok(contents) => contents,
             Err(why) => {
                 // Create file and return empty string
@@ -232,6 +233,12 @@ async fn main() {
                     match ans.to_lowercase().trim() {
                         "y" => {
                             // Create file
+                            {
+                                let mut f = fs::File::create(&db_path)
+                                    .expect("Failed to create DB file");
+                                f.write_all(b"[]")
+                                    .expect("Failed to write to file");
+                            }
                             break;
                         }, 
                         "n" => break,
@@ -239,8 +246,7 @@ async fn main() {
                     }
                 }
 
-                // This panics with EOF at line 248. Change.
-                String::new()
+                "[]".into()
             }
         }
     };
@@ -258,19 +264,34 @@ async fn main() {
                 if ac_inv.code == inv.code {
                     // active_invites contains invite from disk
                     cached_invite_map
-                        .entry(inv.code)
+                        .entry(inv.code.to_string())
                         .and_modify(|e| e.0 = inv.roles)
                         .or_insert((Vec::<RoleId>::new(), ac_inv.uses));
                     break; // Break to avoid further borrows of moved variable `inv.code` that
                            // would happen if we moved the value in `entry()` and then kept on
                            // looping (since `inv` doesn't change until the outer loop runs again).
-                } else {
-                    // Remove invite from local_invite_mappings?
                 }
             }
+            // Value in local db is not present in Discord anymore
+            cached_invite_map.remove(&inv.code);
+        }
+        // Add invite codes for things not in local
+        for ac_inv in active_invites {
+            cached_invite_map
+                .entry(ac_inv.code)
+                .or_insert((Vec::<RoleId>::new(), ac_inv.uses));
         }
 
         // Serialise the new vector and write it back to file?
+        let f = fs::File::create(db_path + ".new")
+            .expect("Failed to create new file");
+        let mut roles_to_write = Vec::<InviteRoles>::new();
+        for (code, (roles, _uses)) in cached_invite_map.iter() {
+            roles_to_write.push(InviteRoles { code: code.to_string(), roles: roles.to_vec() });
+        }
+        println!("{:?}", roles_to_write);
+        serde_json::to_writer_pretty(f, &roles_to_write)
+            .expect("Failed to write updated JSON");
     } else {
         panic!("Error getting active invites from the Discord API");
     }
