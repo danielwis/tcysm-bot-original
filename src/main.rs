@@ -5,7 +5,7 @@
 
 mod commands;
 
-use std::env;
+use std::{env, fs};
 use std::collections::{HashSet, HashMap};
 use std::sync::Arc;
 use serenity::model::prelude::{GuildId, Member, RoleId};
@@ -17,15 +17,23 @@ use serenity::{
 use serenity::http::Http;
 use serenity::framework::StandardFramework;
 use serenity::framework::standard::macros::group;
+use serde::{Deserialize, Serialize};
 // use serenity::model::event::ResumedEvent;
 
 use crate::commands::*; // Update to crate::commands::filename::* when filename is no longer
                         // "mod.rs"
 use crate::commands::invite::*;
 
+#[derive(Serialize, Deserialize)]
+struct InviteRoles {
+    code: String,
+    roles: Vec<RoleId>,
+}
+
+
+// We want an `InviteTracker` object to look like: "<invite-id>: ([roles], uses)"
 struct InviteTracker;
 impl TypeMapKey for InviteTracker {
-    // We want an `InviteTracker` object to look like: "<invite-id>: ([roles], uses)"
     type Value = Arc<RwLock<HashMap<String, (Vec<RoleId>, u64)>>>;
 }
 
@@ -207,11 +215,64 @@ async fn main() {
     // Construct a hash map to be contained in an InviteTracker object
     // where it will be wrapped in Arc<RwLock> for thread safety.
     // Used to track invites' associated roles and auto-assign them on join
-    let mut invite_map = HashMap::<String, (Vec<RoleId>, u64)>::default();
-    if let Ok(active_invites) = GuildId(guild_id).invites(http).await {
-        for inv in active_invites {
-            invite_map.insert(inv.code, (Vec::<RoleId>::new(), inv.uses));
+    let db_path = env::var("JSON_PATH")
+        .expect("Could not find the JSON_PATH variable in environment");
+    let db_string = {
+        match fs::read_to_string(db_path) {
+            Ok(contents) => contents,
+            Err(why) => {
+                // Create file and return empty string
+                println!("Could not read db file due to the following error: {:?}.", why);
+                let mut ans = String::new();
+                loop {
+                    println!("Do you want to create the file? y/n");
+                    std::io::stdin()
+                        .read_line(&mut ans)
+                        .expect("Failed to read input");
+                    match ans.to_lowercase().trim() {
+                        "y" => {
+                            // Create file
+                            break;
+                        }, 
+                        "n" => break,
+                        _ => continue
+                    }
+                }
+
+                // This panics with EOF at line 248. Change.
+                String::new()
+            }
         }
+    };
+    let local_invite_mappings: Vec<InviteRoles> = serde_json::from_str(&db_string)
+        .expect("Error getting invite mappings");
+
+    // Get known invites from discord api
+    // for each of the local invites:
+    // check if the code (key) exists in active_invites
+    // if it doesn't, remove it from the json file
+    let mut cached_invite_map = HashMap::<String, (Vec<RoleId>, u64)>::default();
+    if let Ok(active_invites) = GuildId(guild_id).invites(http).await {
+        for inv in local_invite_mappings {
+            for ac_inv in &active_invites {
+                if ac_inv.code == inv.code {
+                    // active_invites contains invite from disk
+                    cached_invite_map
+                        .entry(inv.code)
+                        .and_modify(|e| e.0 = inv.roles)
+                        .or_insert((Vec::<RoleId>::new(), ac_inv.uses));
+                    break; // Break to avoid further borrows of moved variable `inv.code` that
+                           // would happen if we moved the value in `entry()` and then kept on
+                           // looping (since `inv` doesn't change until the outer loop runs again).
+                } else {
+                    // Remove invite from local_invite_mappings?
+                }
+            }
+        }
+
+        // Serialise the new vector and write it back to file?
+    } else {
+        panic!("Error getting active invites from the Discord API");
     }
 
     // Explicitly scope this to release the lock after write
@@ -221,8 +282,9 @@ async fn main() {
         // Insert an InviteTracker object into the client data.
         // This is done so that we can access it within events and other
         // methods, as `data` is available through `ctx.data`.
-        data.insert::<InviteTracker>(Arc::new(RwLock::new(invite_map)));
+        data.insert::<InviteTracker>(Arc::new(RwLock::new(cached_invite_map)));
     }
+
 
     if let Err(why) = client.start().await {
         println!("Error starting client: {:?}", why);
