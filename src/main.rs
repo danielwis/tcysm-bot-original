@@ -80,7 +80,7 @@ impl EventHandler for Handler {
     async fn guild_member_addition(&self, ctx: Context, mut newmem: Member) {
         if let Ok(active_invites) = newmem.guild_id.invites(&ctx.http).await {
             // We can assume that the same invite codes are present in both
-            // the cached invites and the ones we get here, as the (TODO)
+            // the cached invites and the ones we get from the API call, as the (TODO)
             // invite_add and invite_delete events will update the cached ones
             let data = ctx.data.read().await;
             let cached_invites = data.get::<InviteTracker>()
@@ -149,7 +149,7 @@ async fn main() {
                    .with_whitespace(true)
                    .on_mention(Some(bot_id))
                    .prefix("!")
-                   .delimiters(vec![", ", ","])
+                   .delimiters(vec![", ", ",", " "])
                    .owners(owners))
         .group(&GENERAL_GROUP)
         .group(&INVITE_GROUP);
@@ -285,7 +285,7 @@ async fn main() {
         }
 
         // Serialise the new vector and write it back to file?
-        let f = fs::File::create(db_path + ".new")
+        let f = fs::File::create(db_path)
             .expect("Failed to create new file");
         let mut roles_to_write = Vec::<InviteRoles>::new();
         for (code, (roles, _uses)) in cached_invite_map.iter() {
