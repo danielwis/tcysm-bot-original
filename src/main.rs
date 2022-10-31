@@ -223,9 +223,6 @@ async fn main() {
         .expect("Error creating client");
     println!("Built client");
 
-    let guild_id = 1030837656294264904; // Bot Testing server
-    println!("{:?}", GuildId(guild_id).invites(&http).await);
-
     // Construct a hash map to be contained in an InviteTracker object
     // where it will be wrapped in Arc<RwLock> for thread safety.
     // Used to track invites' associated roles and auto-assign them on join
@@ -272,6 +269,10 @@ async fn main() {
     // check if the code (key) exists in active_invites
     // if it doesn't, remove it from the json file
     let mut cached_invite_map = HashMap::<String, (Vec<Role>, u64)>::default();
+
+    let guild_id = env::var("GUILD_ID")
+        .expect("Could not find the GUILD_ID variable in environment").parse().expect("Unable to parse numeric guild id.");
+
     if let Ok(active_invites) = GuildId(guild_id).invites(http).await {
         'new_local: for inv in local_invite_mappings {
             for ac_inv in &active_invites {
