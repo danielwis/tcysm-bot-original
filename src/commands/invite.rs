@@ -52,13 +52,15 @@ async fn link(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                         }
 
                         // We have at least one role specified
-                        for arg in args.iter::<String>() {
-                            if let Some(role) = guild.role_by_name(&arg.unwrap_or("".to_string())) {
+                        for arg in args.iter().quoted() {
+                            let arg = arg.unwrap_or("".to_string());
+                            let arg_temp = arg.clone();
+                            if let Some(role) = guild.role_by_name(&arg) {
                                 println!("Adding role: {:?}", role);
                                 // Add the specified role to the hashmap. Does this even need extra scoping?
                                 entry.get_mut().0.push(role.to_owned());
                             } else {
-                                if let Err(why) = msg.channel_id.say(&ctx, "No invite code ".to_string() + &invite + " found.").await {
+                                if let Err(why) = msg.channel_id.say(&ctx, "No role ".to_string() + &arg_temp + " found.").await {
                                     println!("Error sending message: {:?}", why);
                                 }
                             }
