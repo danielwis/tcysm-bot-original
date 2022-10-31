@@ -9,7 +9,7 @@ use std::io::Write;
 use std::{env, fs};
 use std::collections::{HashSet, HashMap};
 use std::sync::Arc;
-use serenity::model::prelude::{GuildId, Member, Role, RoleId};
+use serenity::model::prelude::{GuildId, Member, Role, RoleId, InviteCreateEvent, ResumedEvent};
 use serenity::{
     async_trait,
     model::gateway::Ready,
@@ -48,11 +48,11 @@ struct Handler;
 struct General; // The name of the command group
 
 #[group]
-#[description = "Link invites to specific roles"]
+#[description = "Link invites to specific roles that will be assigned on member join"]
 #[summary = "Change link-roles associations"]
 #[prefixes("invite", "inv")]
 #[default_command("list")]
-#[commands("link", "unlink", "list")]
+#[commands("link", "unlink", "list", "sync")]
 #[allowed_roles("Mod")]
 struct Invite;
 
@@ -105,11 +105,22 @@ impl EventHandler for Handler {
         }
     }
 
-    /*
+    async fn invite_create(&self, ctx: Context, inv_event: InviteCreateEvent) {
+        // Add the invite to the hashmap without any roles linked to it
+        let data_locked = {
+            let data = ctx.data.read().await;
+            data.get::<InviteTracker>().expect("Expected InviteTracker in data/typemap").clone()
+        };
+
+        {
+            let mut invites = data_locked.write().await;
+            invites.entry(inv_event.code).or_insert((Vec::<Role>::new(), 0));
+        }
+    }
+
     async fn resume(&self, _: Context, _: ResumedEvent) {
         println!("Resumed");
     }
-    */
 }
 
 #[tokio::main]
@@ -252,6 +263,7 @@ async fn main() {
             }
         }
     };
+    println!("Db string read: {}", db_string);
     let local_invite_mappings: Vec<InviteRoles> = serde_json::from_str(&db_string)
         .expect("Error getting invite mappings");
 
@@ -261,22 +273,25 @@ async fn main() {
     // if it doesn't, remove it from the json file
     let mut cached_invite_map = HashMap::<String, (Vec<Role>, u64)>::default();
     if let Ok(active_invites) = GuildId(guild_id).invites(http).await {
-        for inv in local_invite_mappings {
+        'new_local: for inv in local_invite_mappings {
             for ac_inv in &active_invites {
                 if ac_inv.code == inv.code {
+                    // println!("Inv roles for {} are {:?}", inv.code, inv.roles);
                     // active_invites contains invite from disk
                     cached_invite_map
                         .entry(inv.code.to_string())
-                        .and_modify(|e| e.0 = inv.roles)
-                        .or_insert((Vec::<Role>::new(), ac_inv.uses));
-                    break; // Break to avoid further borrows of moved variable `inv.code` that
+                        .or_insert((Vec::<Role>::new(), ac_inv.uses)).0 = inv.roles;
+                    continue 'new_local; // Break to avoid further borrows of moved variable `inv.code` that
                            // would happen if we moved the value in `entry()` and then kept on
                            // looping (since `inv` doesn't change until the outer loop runs again).
                 }
             }
             // Value in local db is not present in Discord anymore
+            println!("Removing invite {} from the local DB as it is no longer present in the guild", inv.code);
             cached_invite_map.remove(&inv.code);
         }
+        println!("Cached invite map between adding local and http invites: {:?}", cached_invite_map);
+
         // Add invite codes for things not in local
         for ac_inv in active_invites {
             cached_invite_map
