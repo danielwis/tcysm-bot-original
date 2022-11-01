@@ -139,7 +139,11 @@ async fn list(ctx: &Context, msg: &Message) -> CommandResult {
     // Make an iterator out of the RwLock
     for (code, (roles, _uses)) in invites.iter() {
         response.push(code.to_string() + ": ");
-        response.push(roles.iter().map(|r| r.name.to_string()).collect::<Vec<String>>().join(", ") + "\n");
+        if roles.is_empty() {
+            response.push_italic_line("No roles linked");
+        } else {
+            response.push_line(roles.iter().map(|r| r.name.to_string()).collect::<Vec<String>>().join(", "));
+        }
         // println!("{:?}",invites);
     }
 

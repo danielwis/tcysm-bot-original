@@ -9,7 +9,7 @@ use std::io::Write;
 use std::{env, fs};
 use std::collections::{HashSet, HashMap};
 use std::sync::Arc;
-use serenity::model::prelude::{GuildId, Member, Role, RoleId, InviteCreateEvent, ResumedEvent};
+use serenity::model::prelude::{GuildId, Member, Role, RoleId, InviteCreateEvent, ResumedEvent, InviteDeleteEvent};
 use serenity::{
     async_trait,
     model::gateway::Ready,
@@ -102,6 +102,19 @@ impl EventHandler for Handler {
             }
         } else {
             panic!("Error getting invites");
+        }
+    }
+
+    async fn invite_delete(&self, ctx: Context, inv_event: InviteDeleteEvent) {
+        // Add the invite to the hashmap without any roles linked to it
+        let data_locked = {
+            let data = ctx.data.read().await;
+            data.get::<InviteTracker>().expect("Expected InviteTracker in data/typemap").clone()
+        };
+
+        {
+            let mut invites = data_locked.write().await;
+            invites.remove(&inv_event.code);
         }
     }
 
