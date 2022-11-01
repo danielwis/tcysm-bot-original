@@ -52,7 +52,7 @@ struct General; // The name of the command group
 #[summary = "Change link-roles associations"]
 #[prefixes("invite", "inv")]
 #[default_command("list")]
-#[commands("link", "unlink", "list", "sync")]
+#[commands("link", "unlink", "list", "sync", "create")]
 #[allowed_roles("Mod")]
 struct Invite;
 

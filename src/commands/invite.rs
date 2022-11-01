@@ -1,5 +1,4 @@
 use std::{env, fs};
-use std::collections::HashMap;
 
 use serenity::{framework::standard::macros::command, utils::MessageBuilder};
 use serenity::framework::standard::{CommandResult, Args};
@@ -22,6 +21,25 @@ struct Invite {
     invite_id: String,
     roles: Vec<Role>,
     uses: u32,
+}
+
+#[command]
+async fn create(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    // !inv create exp_age exp_uses channel
+    let maxage = args.single::<u64>().unwrap_or(0);
+    let maxuses = args.single::<u64>().unwrap_or(0);
+    let chan = args.single::<ChannelId>().unwrap_or(ChannelId(0));
+    if let Ok(invite) = chan.create_invite(ctx, |i| i.max_age(maxage).max_uses(maxuses).unique(true)).await {
+        if let Err(why) = msg.channel_id.say(&ctx, format!("Created invite {code} for {chan} with a max age of {maxage} seconds, and max uses {maxuses}", code=invite.code)).await {
+            println!("Error sending message to channel: {:?}", why);
+        }
+    } else {
+        if let Err(why) = msg.channel_id.say(&ctx, format!("Error creating invite for channel {chan}")).await {
+            println!("Error sending message to channel {chan}: {:?}", why);
+        }
+    }
+
+    Ok(())
 }
 
 #[command]
