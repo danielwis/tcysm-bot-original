@@ -87,7 +87,7 @@ impl EventHandler for Handler {
                 .expect("Could not find cached InviteTracker object");
 
             for inv in active_invites {
-                if let Some( (rls, cached_count) ) = cached_invites.read().await.get(&inv.code) {
+                if let Some( (rls, cached_count) ) = cached_invites.write().await.get_mut(&inv.code) {
                     if inv.uses > *cached_count {
                         println!("Invite changed: {}", inv.code);
                         println!("Roles: {:?}", rls);
@@ -96,6 +96,11 @@ impl EventHandler for Handler {
                         if let Err(why) = newmem.add_roles(&ctx.http, &roleids).await {
                             println!("Error adding roles: {:?}", why);
                         }
+
+                        // Also, update the cached_invites values
+                        println!("Updating cached invite use count. Current: {}", *cached_count);
+                        *cached_count = inv.uses;
+                        println!("New count: {}", *cached_count);
                         break;
                     }
                 }
